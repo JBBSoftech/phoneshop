@@ -175,8 +175,31 @@ class WishlistManager extends ChangeNotifier {
   }
 }
 
-final List<Map<String, dynamic>> productCards = [
-];
+
+// Base URL for API calls - Change this to your IP address
+const String baseUrl = 'http://192.168.224.5:5000';
+
+// Dynamic product data - will be fetched from MongoDB
+List<Map<String, dynamic>> productCards = [];
+bool isLoadingProducts = true;
+
+Future<void> fetchProducts() async {
+  try {
+    final response = await http.get(
+      Uri.parse('\$baseUrl/api/products/\$adminObjectId'),
+    );
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['success'] == true) {
+        productCards = List<Map<String, dynamic>>.from(data['data'] ?? []);
+        isLoadingProducts = false;
+      }
+    }
+  } catch (e) {
+    print('Error fetching products: $e');
+    isLoadingProducts = false;
+  }
+}
 
 
 void main() => runApp(const MyApp());
@@ -247,19 +270,19 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _fetchAppNameAndNavigate() async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:5000/api/admin-element-screen/$_adminObjectId/shop-name'),
+        Uri.parse('$baseUrl/api/app-config/$_adminObjectId'),
       );
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (mounted) {
           setState(() {
-            _appName = data['shopName'] ?? 'AppifyYours';
+            _appName = data['data']?['appName'] ?? data['data']?['shopName'] ?? 'AppifyYours';
           });
         }
       }
     } catch (e) {
-      print('Error fetching shop name: $e');
+      print('Error fetching app name: $e');
       if (mounted) {
         setState(() {
           _appName = 'AppifyYours';
@@ -361,7 +384,7 @@ class _SignInPageState extends State<SignInPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:5000/api/users/sign-in'),
+        Uri.parse('$baseUrl/api/users/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': _emailController.text.trim(),
@@ -574,7 +597,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:5000/api/users/create-account'),
+        Uri.parse('$baseUrl/api/users/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'firstName': firstName,
@@ -587,7 +610,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
         }),
       );
       
-      if (response.statusCode == 201) {
+      if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
           if (mounted) {
