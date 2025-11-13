@@ -175,31 +175,14 @@ class WishlistManager extends ChangeNotifier {
   }
 }
 
-
-// Base URL for API calls - Change this to your IP address
-const String baseUrl = 'http://192.168.224.5:5000';
-
-// Dynamic product data - will be fetched from MongoDB
-List<Map<String, dynamic>> productCards = [];
-bool isLoadingProducts = true;
-
-Future<void> fetchProducts() async {
-  try {
-    final response = await http.get(
-      Uri.parse('\$baseUrl/api/products/\$adminObjectId'),
-    );
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['success'] == true) {
-        productCards = List<Map<String, dynamic>>.from(data['data'] ?? []);
-        isLoadingProducts = false;
-      }
-    }
-  } catch (e) {
-    print('Error fetching products: $e');
-    isLoadingProducts = false;
+final List<Map<String, dynamic>> productCards = [
+  {
+    'productName': 'Product Name',
+    'imageAsset': null,
+    'price': '\$299',
+    'discountPrice': '\$199',
   }
-}
+];
 
 
 void main() => runApp(const MyApp());
@@ -244,517 +227,13 @@ class MyApp extends StatelessWidget {
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     ),
-    home: const SplashScreen(),
+    home: const HomePage(),
     debugShowCheckedModeBanner: false,
   );
 }
 
-// Splash Screen - First screen
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
-
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> {
-  String _appName = 'Loading...';
-  final String _adminObjectId = '6911f0e70c45b790ce0115d2';
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchAppNameAndNavigate();
-  }
-
-  Future<void> _fetchAppNameAndNavigate() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/app-config/$_adminObjectId'),
-      );
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (mounted) {
-          setState(() {
-            _appName = data['data']?['appName'] ?? data['data']?['shopName'] ?? 'AppifyYours';
-          });
-        }
-      }
-    } catch (e) {
-      print('Error fetching app name: $e');
-      if (mounted) {
-        setState(() {
-          _appName = 'AppifyYours';
-        });
-      }
-    }
-    
-    await Future.delayed(const Duration(seconds: 3));
-    
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => SignInPage(adminObjectId: _adminObjectId)),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue.shade400, Colors.blue.shade800],
-          ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Spacer(),
-              const Icon(
-                Icons.shopping_bag,
-                size: 100,
-                color: Colors.white,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                _appName,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const CircularProgressIndicator(color: Colors.white),
-              const Spacer(),
-              const Text(
-                'Powered by AppifyYours',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white70,
-                ),
-              ),
-              const SizedBox(height: 40),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Sign In Page - Second screen
-class SignInPage extends StatefulWidget {
-  final String adminObjectId;
-  
-  const SignInPage({super.key, required this.adminObjectId});
-
-  @override
-  State<SignInPage> createState() => _SignInPageState();
-}
-
-class _SignInPageState extends State<SignInPage> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _signIn() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/users/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': _emailController.text.trim(),
-          'password': _passwordController.text,
-          'adminObjectId': widget.adminObjectId,
-        }),
-      );
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true) {
-          if (mounted) {
-            setState(() => _isLoading = false);
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => HomePage(adminObjectId: widget.adminObjectId)),
-            );
-          }
-        } else {
-          throw Exception(data['error'] ?? 'Sign in failed');
-        }
-      } else {
-        final error = json.decode(response.body);
-        throw Exception(error['error'] ?? 'Invalid credentials');
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Sign in failed: ${e.toString().replaceAll("Exception: ", "")}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 60),
-              const Icon(
-                Icons.shopping_bag,
-                size: 80,
-                color: Colors.blue,
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Welcome Back',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Sign in to continue',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 48),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                ),
-                obscureText: _obscurePassword,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _signIn,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Sign In', style: TextStyle(fontSize: 16)),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CreateAccountPage(adminObjectId: widget.adminObjectId),
-                    ),
-                  );
-                },
-                child: const Text('Create Your Account'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Create Account Page - Third screen
-class CreateAccountPage extends StatefulWidget {
-  final String adminObjectId;
-  
-  const CreateAccountPage({super.key, required this.adminObjectId});
-
-  @override
-  State<CreateAccountPage> createState() => _CreateAccountPageState();
-}
-
-class _CreateAccountPageState extends State<CreateAccountPage> {
-  final _firstNameController = TextEditingController();
-  final _lastNameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-
-  @override
-  void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  bool _validateEmail(String email) {
-    return RegExp(r'^[w-.]+@([w-]+.)+[w-]{2,4}$').hasMatch(email);
-  }
-
-  bool _validatePhone(String phone) {
-    return RegExp(r'^[0-9]{10}$').hasMatch(phone);
-  }
-
-  bool _validatePassword(String password) {
-    return password.length >= 6;
-  }
-
-  Future<void> _createAccount() async {
-    final firstName = _firstNameController.text.trim();
-    final lastName = _lastNameController.text.trim();
-    final email = _emailController.text.trim();
-    final phone = _phoneController.text.trim();
-    final password = _passwordController.text;
-
-    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
-      return;
-    }
-
-    if (!_validateEmail(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email')),
-      );
-      return;
-    }
-
-    if (!_validatePhone(phone)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid 10-digit phone number')),
-      );
-      return;
-    }
-
-    if (!_validatePassword(password)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password must be at least 6 characters')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/users/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'firstName': firstName,
-          'lastName': lastName,
-          'email': email,
-          'phone': phone,
-          'password': password,
-          'adminObjectId': widget.adminObjectId,
-          'countryCode': '+91',
-        }),
-      );
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true) {
-          if (mounted) {
-            setState(() => _isLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Account created successfully! Please sign in.'),
-                backgroundColor: Colors.green,
-              ),
-            );
-            Navigator.pop(context);
-          }
-        } else {
-          throw Exception(data['error'] ?? 'Failed to create account');
-        }
-      } else {
-        final error = json.decode(response.body);
-        throw Exception(error['error'] ?? 'Failed to create account');
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed: ${e.toString().replaceAll("Exception: ", "")}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Account'),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 24),
-              const Text(
-                'Join Us Today',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Create your account to get started',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              TextField(
-                controller: _firstNameController,
-                decoration: const InputDecoration(
-                  labelText: 'First Name',
-                  prefixIcon: Icon(Icons.person),
-                ),
-                textCapitalization: TextCapitalization.words,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _lastNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Last Name',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                textCapitalization: TextCapitalization.words,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number',
-                  prefixIcon: Icon(Icons.phone),
-                  hintText: '10 digit number',
-                ),
-                keyboardType: TextInputType.phone,
-                maxLength: 10,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email ID',
-                  prefixIcon: Icon(Icons.email),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                ),
-                obscureText: _obscurePassword,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _createAccount,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Create Account', style: TextStyle(fontSize: 16)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class HomePage extends StatefulWidget {
-  final String adminObjectId;
-  
-  const HomePage({super.key, required this.adminObjectId});
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -1014,6 +493,312 @@ class _HomePageState extends State<HomePage> {
                         ),
                         
                       ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    color: Color(0xFFFFFFFF),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        
+                        const SizedBox(height: 8),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childAspectRatio: 0.75,
+                          ),
+                          itemCount:                           _searchQuery.isEmpty 
+                              ? productCards.length 
+                              : productCards.where((product) {
+                                  final productName = (product['productName'] ?? '').toString().toLowerCase();
+                                  final price = (product['price'] ?? '').toString().toLowerCase();
+                                  final discountPrice = (product['discountPrice'] ?? '').toString().toLowerCase();
+                                  return productName.contains(_searchQuery) || price.contains(_searchQuery) || discountPrice.contains(_searchQuery);
+                                }).length,
+                          itemBuilder: (context, index) {
+                            final filteredProducts =                             _searchQuery.isEmpty 
+                                ? productCards 
+                                : productCards.where((product) {
+                                    final productName = (product['productName'] ?? '').toString().toLowerCase();
+                                    final price = (product['price'] ?? '').toString().toLowerCase();
+                                    final discountPrice = (product['discountPrice'] ?? '').toString().toLowerCase();
+                                    return productName.contains(_searchQuery) || price.contains(_searchQuery) || discountPrice.contains(_searchQuery);
+                                  }).toList();
+                            if (index >= filteredProducts.length) return const SizedBox();
+                            final product = filteredProducts[index];
+                            final productId = 'product_$index';
+                            final isInWishlist = _wishlistManager.isInWishlist(productId);
+                            return Card(
+                              elevation: 3,
+                              color: Color(0xFFFFFFFF),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Stack(
+                                      children: [
+                                        Container(
+                                          width: double.infinity,
+                                          decoration: BoxDecoration(
+                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                          ),
+                                          child:                                           product['imageAsset'] != null
+                                              ? (product['imageAsset'] != null && product['imageAsset'].isNotEmpty
+                                              ? (product['imageAsset'].startsWith('data:image/')
+                                                  ? Image.memory(
+                                                      base64Decode(product['imageAsset'].split(',')[1]),
+                                                      width: double.infinity,
+                                                      height: double.infinity,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context, error, stackTrace) => Container(
+                                                        color: Colors.grey[300],
+                                                        child: const Icon(Icons.image, size: 40, color: Colors.grey),
+                                                      ),
+                                                    )
+                                                  : Image.network(
+                                                      product['imageAsset'],
+                                                      width: double.infinity,
+                                                      height: double.infinity,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context, error, stackTrace) => Container(
+                                                        color: Colors.grey[300],
+                                                        child: const Icon(Icons.image, size: 40, color: Colors.grey),
+                                                      ),
+                                                    ))
+                                              : Container(
+                                                  color: Colors.grey[300],
+                                                  child: const Icon(Icons.image, size: 40, color: Colors.grey),
+                                                ))
+                                              : Container(
+                                            color: Colors.grey[300],
+                                            child: const Icon(Icons.image, size: 40),
+                                          )
+                                          ,
+                                        ),
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: IconButton(
+                                            onPressed: () {
+                                              if (isInWishlist) {
+                                                _wishlistManager.removeItem(productId);
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Removed from wishlist')),
+                                                );
+                                              } else {
+                                                final wishlistItem = WishlistItem(
+                                                  id: productId,
+                                                  name: product['productName'] ?? 'Product',
+                                                  price: double.tryParse(product['price']?.replaceAll('\$','') ?? '0') ?? 0.0,
+                                                  discountPrice: product['discountPrice'] != null && product['discountPrice'].isNotEmpty
+                                                      ? double.tryParse(product['discountPrice'].replaceAll('\$','') ?? '0') ?? 0.0
+                                                      : 0.0,
+                                                  image: product['imageAsset'],
+                                                );
+                                                _wishlistManager.addItem(wishlistItem);
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Added to wishlist')),
+                                                );
+                                              }
+                                            },
+                                            icon: Icon(
+                                              isInWishlist ? Icons.favorite : Icons.favorite_border,
+                                              color: isInWishlist ? Colors.red : Colors.grey,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            product['productName'] ?? 'Product Name',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              // Current/Final Price (always without strikethrough)
+                                              Text(
+                                                                                                product['price'] ?? '$0'
+                                                ,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.blue,
+                                                ),
+                                              ),
+                                              // Original Price (if discount exists)
+                                                                                            if (product['discountPrice'] != null && product['discountPrice'].toString().isNotEmpty)
+                                                Text(
+                                                  product['discountPrice'] ?? '',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    decoration: TextDecoration.lineThrough,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Icon(Icons.star, color: Colors.amber, size: 14),
+                                              Icon(Icons.star, color: Colors.amber, size: 14),
+                                              Icon(Icons.star, color: Colors.amber, size: 14),
+                                              Icon(Icons.star, color: Colors.amber, size: 14),
+                                              Icon(Icons.star_border, color: Colors.amber, size: 14),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                product['rating'] ?? '4.0',
+                                                style: const TextStyle(fontSize: 12),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: ElevatedButton(
+                                              onPressed: () {
+                                                final cartItem = CartItem(
+                                                  id: productId,
+                                                  name: product['productName'] ?? 'Product',
+                                                  price: PriceUtils.parsePrice(product['price'] ?? '0'),
+                                                  discountPrice:                                                   product['discountPrice'] != null && product['discountPrice'].toString().isNotEmpty
+                                                      ? PriceUtils.parsePrice(product['discountPrice'])
+                                                      : 0.0
+                                                  ,
+                                                  image: product['imageAsset'],
+                                                );
+                                                _cartManager.addItem(cartItem);
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Added to cart')),
+                                                );
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.blue,
+                                                foregroundColor: Colors.white,
+                                                elevation: 0,
+                                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  
+                                                ),
+                                              ),
+                                              child: const Text(
+                                                'Add to Cart',
+                                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    child: Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Icon(Icons.store, size: 24),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'My Store',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                const Icon(Icons.location_on, color: Colors.blue),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text('123 Main St', style: TextStyle(fontSize: 12))),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.email, color: Colors.blue),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text('support@example.com', style: TextStyle(fontSize: 12))),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.phone, color: Colors.blue),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text('(123) 456-7890', style: TextStyle(fontSize: 12))),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            const Divider(),
+                            const SizedBox(height: 12),
+                            Center(
+                              child: Text(
+                                'Â© 2023 My Store. All rights reserved.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -1339,24 +1124,17 @@ class _HomePageState extends State<HomePage> {
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(250, 50),
-                      side: const BorderSide(color: Colors.red),
+                      side: const BorderSide(color: Colors.grey),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: () {
-                      // Log out and navigate to sign in page
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SignInPage(adminObjectId: '6911f0e70c45b790ce0115d2'),
-                        ),
-                        (route) => false,
-                      );
+                      // Log Out button action
                     },
                     child: const Text(
                       'Log Out',
-                      style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 18, color: Colors.black),
                     ),
                   ),
                 ],
